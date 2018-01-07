@@ -827,10 +827,10 @@ Circle.prototype = {
     if (this.parent && this.treeNode.children.length > 0 && (dx > 0 || dx < 0 || dy < 0 || dy > 0)) {
       const px = this.parent.treeNode.x;
       const py = this.parent.treeNode.y;
-      const dpx1 = x1 - px;
-      const dpy1 = y1 - py;
-      const dpx2 = x2 - px;
-      const dpy2 = y2 - py;
+      const dpx1 = this.treeNode.x - px;
+      const dpy1 = this.treeNode.y - py;
+      const dpx2 = this.treeNode.x + dx - px;
+      const dpy2 = this.treeNode.y + dy - py;
       const r1 = Math.sqrt(dpx1 * dpx1 + dpy1 * dpy1);
       const r2 = Math.sqrt(dpx2 * dpx2 + dpy2 * dpy2);
       // interpret drag as a rotation

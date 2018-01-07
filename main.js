@@ -688,12 +688,11 @@ const addCircle = function(st, r, x, y, parent) {
   return circle;
 };
 
-/*
-const removeSpecificCircle = function(st, parent, circle) {
+const removeSpecificCircle = function(st, parentTreeNode, treeNode) {
   // remove from parent
-  const ptnc = parent.treeNode.children;
+  const ptnc = parentTreeNode.children;
   for (let i = 0; i < ptnc.length; i++) {
-    if (ptnc[i].c == treeNode) {
+    if (ptnc[i] == treeNode) {
       ptnc.splice(i, 1);
       break;
     }
@@ -717,29 +716,15 @@ const removeSpecificCircle = function(st, parent, circle) {
 
   // recursively remove all children
   while (treeNode.children.length > 0) {
-    removeSpecificCircle(st, treeNode, treeNode.children[0].c);
+    removeSpecificCircle(st, treeNode, treeNode.children[0]);
   }
 };
-
-const removeCircle = function(st, x, y) {
-  for (let i = 1; i < st.hotspots.length; i++) {
-    if (x == st.hotspots[i].x && y == st.hotspots[i].y) {
-      if (st.hotspots[i].parent) {
-        removeSpecificCircle(
-            st, st.hotspots[i].parent, st.hotspots[i].treeNode);
-      }
-      break;
-    }
-  }
-
-  //saveToLocalStorage('gene_circles2', st.circles);
-};
-*/
 
 const restoreCircles = function(st) {
   st.drawables = [];
   st.hotspots = [];
-  st.circles = addCircle(st, 100, 0, 0, null).treeNode;
+  const circle = addCircle(st, 100, 0, 0, null);
+  st.circles = circle.treeNode;
   st.drawables[0].x = 0;
   st.drawables[0].y = 0;
 };
@@ -852,10 +837,18 @@ Circle.prototype = {
     this.treeNode.x += dx;
     this.treeNode.y += dy;
   },
-  dragEnd() {
+  dragEnd(st, x, y) {
+    if (this.parent) {
+      const minDist = this.parent.treeNode.r;
+      const dx = this.treeNode.x - this.parent.treeNode.x;
+      const dy = this.treeNode.y - this.parent.treeNode.y;
+      if (dx * dx + dy * dy < minDist * minDist) {
+        removeSpecificCircle(st, this.parent.treeNode, this.treeNode);
+      }
+    }
   },
   dragCancel() {
-    removeSpecificCircle(this);
+    removeSpecificCircle(st, this.parent.treeNode, this.treeNode);
   },
 
   // drawable

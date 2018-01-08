@@ -1055,7 +1055,7 @@ Circle.prototype = {
         ctx.save();
         ctx.translate(this.treeNode.x, this.treeNode.y);
         ctx.scale(r / 60, r / 60);
-        ctx.font = '72px monospace';
+        ctx.font = '60px monospace';
         ctx.fillText(this.treeNode.s, 0, 0);
         ctx.restore();
       }
@@ -1133,9 +1133,9 @@ Menu.prototype = {
     const panY = st.panY + st.tempPanY;
     const scale = st.zoom * st.tempZoom;
 
-    const cx = st.selectedCircle.treeNode.x * scale + panX - 25;
-    const cy = st.selectedCircle.treeNode.y * scale + panY - 25;
-    const r = 75;
+    const cx = st.selectedCircle.treeNode.x * scale + panX - 40;
+    const cy = st.selectedCircle.treeNode.y * scale + panY - 40;
+    const r = 120;
     for (let i = 0; i < this.items.length; ++i) {
       const x = cx + Math.cos(i / this.items.length * 2 * Math.PI) * r;
       const y = cy + Math.sin(i / this.items.length * 2 * Math.PI) * r;
@@ -1147,13 +1147,13 @@ Menu.prototype = {
   },
   draw(st, ctx) {
     this.forEachButton(st, function(item, x, y) {
-      drawRoundRect(ctx, x, y, x + 45, y + 45, 5, '#88f', '#00f');
+      drawRoundRect(ctx, x, y, x + 80, y + 80, 5, '#fff', '#000');
 
       ctx.fillStyle = '#000';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = '20px monospace';
-      ctx.fillText(item, x + 45/2, y + 45/2);
+      ctx.fillText(item, x + 40, y + 40);
       return true;
     });
   },
@@ -1161,7 +1161,7 @@ Menu.prototype = {
   isWithin(st, hitX, hitY) {
     let hit = false;
     this.forEachButton(st, function(item, x, y) {
-      if (hitX >= x && hitX < x + 50 && hitY >= y && hitY < y + 50) {
+      if (hitX >= x && hitX < x + 80 && hitY >= y && hitY < y + 80) {
         hit = true;
         return false;
       }
@@ -1173,7 +1173,7 @@ Menu.prototype = {
 
   hit(st, hitX, hitY) {
     this.forEachButton(st, function(item, x, y) {
-      if (hitX >= x && hitX < x + 50 && hitY >= y && hitY < y + 50) {
+      if (hitX >= x && hitX < x + 80 && hitY >= y && hitY < y + 80) {
         if (st.selectedCircle) {
           st.selectedCircle.treeNode.s = item;
           st.selectedCircle = null;
@@ -1187,7 +1187,8 @@ Menu.prototype = {
 
 STATE.hotspots = [];
 STATE.drawables = [];
-STATE.menu = new Menu(["A","B","v","^","+","n"]);
+//STATE.menu = new Menu(["fib","-","+","1","2","n","def","r"]);
+STATE.menu = new Menu(["A","B","C","D","E","F","G","H"]);
 STATE.selectedCircle = null;
 STATE.selectedPrune = null;
 STATE.circles = [];

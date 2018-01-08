@@ -914,8 +914,12 @@ Circle.prototype = {
         }
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        ctx.save();
+        ctx.translate(this.treeNode.x, this.treeNode.y);
+        ctx.scale(r / 60, r / 60);
         ctx.font = '72px monospace';
-        ctx.fillText(this.treeNode.s, this.treeNode.x, this.treeNode.y);
+        ctx.fillText(this.treeNode.s, 0, 0);
+        ctx.restore();
       }
 
       // cross-out for pending deletion

@@ -838,7 +838,6 @@ const findPruneInner = function(node, scale, x0, y0) {
 
     const d = Math.abs((y2 - y1)*x0 - (x2 - x1)*y0 + x2*y1 - y2*x1) /
       Math.sqrt((y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
-    console.log(x0, y0, x1, y1, x2, y2, d);
     if (d < 12 / scale) {
       // make sure the point isn't off the ends
       const dx01 = x0 - x1;
@@ -905,13 +904,14 @@ const tryAdopt = function(st, circle) {
     rv.treeNode.children.push(circle.treeNode);
     circle.parent = rv;
     redoTreeNodeSizeInner(circle.parent.treeNode, circle.parent.treeNode.r);
-    const panX = st.panX + st.tempPanX;
-    const panY = st.panY + st.tempPanY;
-    const scale = st.zoom;
 
+    const dx = circle.treeNode.x - circle.parent.treeNode.x;
+    const dy = circle.treeNode.y - circle.parent.treeNode.y;
+    const r = Math.sqrt(dx * dx + dy * dy);
+    const safeR = (circle.parent.treeNode.r + circle.treeNode.r) * 2.2;
     moveSubtree(circle.treeNode,
-        (st.touchStarted.x - panX) / scale - circle.treeNode.x,
-        (st.touchStarted.y - panY) / scale - circle.treeNode.y);
+        circle.parent.treeNode.x + dx * safeR / r - circle.treeNode.x,
+        circle.parent.treeNode.y + dy * safeR / r - circle.treeNode.y);
   }
 };
 

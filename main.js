@@ -970,26 +970,20 @@ const Menu = function(items) {
 
 Menu.prototype = {
   forEachButton(st, f) {
-    let dx = st.screenWide > st.screenHigh ? 0 : 50;
-    let dy = st.screenWide > st.screenHigh ? 50 : 0;
-    let x = 15;
-    let y = 15;
+    const panX = st.panX + st.tempPanX;
+    const panY = st.panY + st.tempPanY;
+    const scale = st.zoom * st.tempZoom;
+
+    const cx = st.selectedCircle.treeNode.x * scale + panX - 25;
+    const cy = st.selectedCircle.treeNode.y * scale + panY - 25;
+    const r = 75;
     for (let i = 0; i < this.items.length; ++i) {
-      if (y + 45 > st.screenHigh) {
-        y = 15;
-        x += 50;
-      }
-      if (x + 45 > st.screenWide) {
-        x = 15;
-        y += 50;
-      }
+      const x = cx + Math.cos(i / this.items.length * 2 * Math.PI) * r;
+      const y = cy + Math.sin(i / this.items.length * 2 * Math.PI) * r;
 
       if (!f(this.items[i], x, y)) {
         break;
       }
-
-      x += dx;
-      y += dy;
     }
   },
   draw(st, ctx) {

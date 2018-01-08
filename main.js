@@ -28,7 +28,9 @@ const STATE = {
 
   // hotspots
   // drawables
+  // menu
   // draggingObj
+  // selectedCircle
 
   // circles
 };
@@ -488,16 +490,20 @@ const draw = function(st, t) {
   ctx.scale(scale, scale);
 
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].draw(ctx, 0, scale, false);
+    st.drawables[i].draw(st, ctx, 0, scale, false);
   }
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].draw(ctx, 1, scale, false);
+    st.drawables[i].draw(st, ctx, 1, scale, false);
   }
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].draw(ctx, 2, scale, false);
+    st.drawables[i].draw(st, ctx, 2, scale, false);
   }
 
   ctx.restore();
+
+  if (st.selectedCircle) {
+    st.menu.draw(st, ctx);
+  }
 
   drawMinimap(st);
 };
@@ -547,13 +553,13 @@ const drawMinimap = function(st) {
   ctx.scale(scale, scale);
 
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].draw(ctx, 0, scale, true);
+    st.drawables[i].draw(st, ctx, 0, scale, true);
   }
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].draw(ctx, 1, scale, true);
+    st.drawables[i].draw(st, ctx, 1, scale, true);
   }
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].draw(ctx, 2, scale, true);
+    st.drawables[i].draw(st, ctx, 2, scale, true);
   }
   ctx.restore();
 
@@ -567,14 +573,25 @@ const drawMinimap = function(st) {
 };
 
 const click = function(st, x, y) {
+  if (st.selectedCircle && st.menu.isWithin(st, x, y)) {
+    st.menu.hit(st, x, y);
+    requestDraw(st);
+    return;
+  }
+  let gotHit = false;
   x = (x - st.panX) / st.zoom;
   y = (y - st.panY) / st.zoom;
   for (let i = st.hotspots.length - 1; i >= 0; --i) {
     const hs = st.hotspots[i];
-    if (hs.isWithin(st, x, y)) {
-      //hs.hit(st, x, y);
+    if (hs.isWithin(st, x, y) || hs.isWithinBG(st, x, y)) {
+      hs.hit(st, x, y);
+      gotHit = true;
       break;
     }
+  }
+
+  if (!gotHit) {
+    st.selectedCircle = null;
   }
 
   requestDraw(st);
@@ -728,7 +745,7 @@ const removeSpecificCircle = function(st, parentTreeNode, treeNode) {
 const restoreCircles = function(st) {
   st.drawables = [];
   st.hotspots = [];
-  const circle = addCircle(st, 100, 0, 0, null);
+  const circle = addCircle(st, 60, 0, 0, null);
   st.circles = circle.treeNode;
   st.drawables[0].x = 0;
   st.drawables[0].y = 0;
@@ -807,6 +824,9 @@ Circle.prototype = {
     const dy = y - this.treeNode.y;
     return dx * dx + dy * dy <= (r + rim) * (r + rim);
   },
+  hit(st, x, y) {
+    st.selectedCircle = this;
+  },
   dragStart(st, x, y) {
     const r = this.treeNode.r;
 
@@ -867,18 +887,38 @@ Circle.prototype = {
   },
 
   // drawable
-  draw(ctx, layer, scale, inset) {
+  draw(st, ctx, layer, scale, inset) {
     if (layer == 2) {
       const r = this.treeNode.r;
+      const selected = this == st.selectedCircle;
 
       ctx.beginPath();
       ctx.arc(this.treeNode.x, this.treeNode.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = '#fff';
+      if (selected) {
+        ctx.fillStyle = '#000';
+      } else {
+        ctx.fillStyle = '#fff';
+      }
       ctx.fill();
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 1/scale;
-      ctx.stroke();
+      if (!selected) {
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1/scale;
+        ctx.stroke();
+      }
 
+      if (this.treeNode.s) {
+        if (selected) {
+          ctx.fillStyle = '#fff';
+        } else {
+          ctx.fillStyle = '#000';
+        }
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '72px monospace';
+        ctx.fillText(this.treeNode.s, this.treeNode.x, this.treeNode.y);
+      }
+
+      // cross-out for pending deletion
       if (this.parent) {
         const minDist = this.parent.treeNode.r;
         const dx = this.treeNode.x - this.parent.treeNode.x;
@@ -924,8 +964,78 @@ Circle.prototype = {
   },
 };
 
+const Menu = function(items) {
+  this.items = items;
+};
+
+Menu.prototype = {
+  forEachButton(st, f) {
+    let dx = st.screenWide > st.screenHigh ? 0 : 50;
+    let dy = st.screenWide > st.screenHigh ? 50 : 0;
+    let x = 15;
+    let y = 15;
+    for (let i = 0; i < this.items.length; ++i) {
+      if (y + 45 > st.screenHigh) {
+        y = 15;
+        x += 50;
+      }
+      if (x + 45 > st.screenWide) {
+        x = 15;
+        y += 50;
+      }
+
+      if (!f(this.items[i], x, y)) {
+        break;
+      }
+
+      x += dx;
+      y += dy;
+    }
+  },
+  draw(st, ctx) {
+    this.forEachButton(st, function(item, x, y) {
+      drawRoundRect(ctx, x, y, x + 45, y + 45, 5, '#88f', '#00f');
+
+      ctx.fillStyle = '#000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '20px monospace';
+      ctx.fillText(item, x + 45/2, y + 45/2);
+      return true;
+    });
+  },
+
+  isWithin(st, hitX, hitY) {
+    let hit = false;
+    this.forEachButton(st, function(item, x, y) {
+      if (hitX >= x && hitX < x + 50 && hitY >= y && hitY < y + 50) {
+        hit = true;
+        return false;
+      }
+      return true;
+    });
+
+    return hit;
+  },
+
+  hit(st, hitX, hitY) {
+    this.forEachButton(st, function(item, x, y) {
+      if (hitX >= x && hitX < x + 50 && hitY >= y && hitY < y + 50) {
+        if (st.selectedCircle) {
+          st.selectedCircle.treeNode.s = item;
+          st.selectedCircle = null;
+        }
+        return false;
+      }
+      return true;
+    });
+  },
+};
+
 STATE.hotspots = [];
 STATE.drawables = [];
+STATE.menu = new Menu(["A","B","v","^","+","n"]);
+STATE.selectedCircle = null;
 STATE.circles = [];
 STATE.panX = 0;
 STATE.panY = 0;

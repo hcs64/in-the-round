@@ -488,10 +488,13 @@ const draw = function(st, t) {
   ctx.scale(scale, scale);
 
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].drawBG(ctx, scale, false);
+    st.drawables[i].draw(ctx, 0, scale, false);
   }
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].draw(ctx, scale, false);
+    st.drawables[i].draw(ctx, 1, scale, false);
+  }
+  for (let i = 0; i < st.drawables.length; i++) {
+    st.drawables[i].draw(ctx, 2, scale, false);
   }
 
   ctx.restore();
@@ -544,11 +547,13 @@ const drawMinimap = function(st) {
   ctx.scale(scale, scale);
 
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].drawBG(ctx, scale, true);
+    st.drawables[i].draw(ctx, 0, scale, true);
   }
-
   for (let i = 0; i < st.drawables.length; i++) {
-    st.drawables[i].draw(ctx, scale, true);
+    st.drawables[i].draw(ctx, 1, scale, true);
+  }
+  for (let i = 0; i < st.drawables.length; i++) {
+    st.drawables[i].draw(ctx, 2, scale, true);
   }
   ctx.restore();
 
@@ -774,6 +779,16 @@ const Circle = function(r, x, y, parent) {
 };
 
 Circle.prototype = {
+  rimSize(scale) {
+    const r = this.treeNode.r;
+    let rim = 50 / scale;
+    if (r * 2 * scale < 45) {
+      rim = 0;
+    } else if (r * 2 * scale < 50) {
+      rim = 50 / scale * (r*2*scale - 45) / 5;
+    }
+    return rim;
+  },
   // hotspot
   isWithin(st, x, y) {
     const scale = st.zoom * st.tempZoom;
@@ -786,7 +801,7 @@ Circle.prototype = {
   isWithinBG(st, x, y) {
     const scale = st.zoom * st.tempZoom;
     const r = this.treeNode.r;
-    const rim = Math.min(r * 2, 50 / scale);
+    const rim = this.rimSize(scale);
 
     const dx = x - this.treeNode.x;
     const dy = y - this.treeNode.y;
@@ -852,37 +867,56 @@ Circle.prototype = {
   },
 
   // drawable
-  drawBG(ctx, scale, inset) {
-    const r = this.treeNode.r;
-    const rim = Math.min(r * 2, 50 / scale);
+  draw(ctx, layer, scale, inset) {
+    if (layer == 2) {
+      const r = this.treeNode.r;
 
-    if (!inset) {
       ctx.beginPath();
-      ctx.arc(this.treeNode.x, this.treeNode.y, r + rim, 0, Math.PI * 2);
-      ctx.fillStyle = '#eee';
+      ctx.arc(this.treeNode.x, this.treeNode.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
       ctx.fill();
-    }
-
-    if (this.parent) {
-      ctx.beginPath();
-      ctx.moveTo(this.treeNode.x, this.treeNode.y);
-      ctx.lineTo(this.parent.treeNode.x, this.parent.treeNode.y);
       ctx.strokeStyle = '#000';
       ctx.lineWidth = 1/scale;
       ctx.stroke();
+
+      if (this.parent) {
+        const minDist = this.parent.treeNode.r;
+        const dx = this.treeNode.x - this.parent.treeNode.x;
+        const dy = this.treeNode.y - this.parent.treeNode.y;
+        if (dx * dx + dy * dy < minDist * minDist) {
+          ctx.beginPath();
+          ctx.arc(this.treeNode.x, this.treeNode.y, r * 1.2, 0, Math.PI * 2);
+          ctx.strokeStyle = '#f00';
+          ctx.lineWidth = 4/scale;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(this.treeNode.x + Math.SQRT1_2 * r * 1.2,
+                     this.treeNode.y + Math.SQRT1_2 * r *-1.2);
+          ctx.lineTo(this.treeNode.x + Math.SQRT1_2 * r *-1.2,
+                     this.treeNode.y + Math.SQRT1_2 * r * 1.2);
+          ctx.stroke();
+        }
+      }
+    } else if (layer == 1) {
+      if (this.parent) {
+        ctx.beginPath();
+        ctx.moveTo(this.treeNode.x, this.treeNode.y);
+        ctx.lineTo(this.parent.treeNode.x, this.parent.treeNode.y);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1/scale;
+        ctx.stroke();
+      }
+    } else if (layer == 0) {
+      const r = this.treeNode.r;
+      const rim = this.rimSize(scale);
+
+      if (!inset && rim > 0) {
+        ctx.beginPath();
+        ctx.arc(this.treeNode.x, this.treeNode.y, r + rim, 0, Math.PI * 2);
+        ctx.fillStyle = '#eee';
+        ctx.fill();
+      }
     }
-  },
-  draw(ctx, scale, inset) {
-    const r = this.treeNode.r;
-
-    ctx.beginPath();
-    ctx.arc(this.treeNode.x, this.treeNode.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff';
-    ctx.fill();
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 1/scale;
-    ctx.stroke();
-
   },
   getBB() {
     const r = this.treeNode.r;

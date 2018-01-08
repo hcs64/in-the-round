@@ -31,6 +31,7 @@ const STATE = {
   // menu
   // draggingObj
   // selectedCircle
+  // selectedPrune
 
   // circles
 };
@@ -592,8 +593,34 @@ const click = function(st, x, y) {
 
   if (!gotHit) {
     st.selectedCircle = null;
-  }
 
+    const rv = findPrune(st, x, y);
+    if (st.selectedPrune && rv &&
+        rv[0] == st.selectedPrune[0] &&
+        rv[1] == st.selectedPrune[1]) {
+      // do prune
+      const p = rv[0];
+      const c = rv[1];
+      for (let i = 0; i < p.children.length; ++i) {
+        if (p.children[i] == c) {
+          p.children.splice(i, 1);
+          break;
+        }
+      }
+      // easiest way to access the full Circle object, hotspots would work as well
+      for (let i = 0; i < st.drawables.length; ++i) {
+        if (st.drawables[i].treeNode == c) {
+          st.drawables[i].parent = null;
+          break;
+        }
+      }
+      st.circles.push(c);
+      redoTreeNodeSize(c);
+      st.selectedPrune = null;
+    } else {
+      st.selectedPrune = rv;
+    }
+  }
   requestDraw(st);
 };
 
@@ -746,7 +773,7 @@ const restoreCircles = function(st) {
   st.drawables = [];
   st.hotspots = [];
   const circle = addCircle(st, 60, 0, 0, null);
-  st.circles = circle.treeNode;
+  st.circles = [circle.treeNode];
   st.drawables[0].x = 0;
   st.drawables[0].y = 0;
 };
@@ -775,7 +802,7 @@ const restoreCircle = function(st, parentTreeNode, parentsDirX, parentsDirY, cir
 }
 */
 
-const rotateTreeNode = function (tn, parent, odx, ody, da) {
+const rotateTreeNode = function(tn, parent, odx, ody, da) {
   const px = parent.x;
   const py = parent.y;
   const dx = tn.x - px;
@@ -788,6 +815,112 @@ const rotateTreeNode = function (tn, parent, odx, ody, da) {
   }
   tn.x += odx;
   tn.y += ody;
+};
+
+const findPrune = function(st, x, y) {
+  const scale = st.zoom;
+  for (let i = 0; i < st.circles.length; ++i) {
+    const rv = findPruneInner(st.circles[i], scale, x, y);
+    if (rv) {
+      return rv;
+    }
+  }
+  return null;
+};
+
+const findPruneInner = function(node, scale, x0, y0) {
+  const x1 = node.x;
+  const y1 = node.y;
+  for (let i = 0; i < node.children.length; ++i) {
+    const c = node.children[i];
+    const x2 = c.x;
+    const y2 = c.y;
+
+    const d = Math.abs((y2 - y1)*x0 - (x2 - x1)*y0 + x2*y1 - y2*x1) /
+      Math.sqrt((y2 - y1) * (y2 - y1) + (x2 - x1) * (x2 - x1));
+    console.log(x0, y0, x1, y1, x2, y2, d);
+    if (d < 12 / scale) {
+      // make sure the point isn't off the ends
+      const dx01 = x0 - x1;
+      const dy01 = y0 - y1;
+      const dx21 = x2 - x1;
+      const dy21 = y2 - y1;
+      const dx02 = x0 - x2;
+      const dy02 = x0 - x2;
+      const dx12 = -dx21;
+      const dy12 = -dx21;
+      const dot01 = dx01 * dx21 + dy01 * dy21;
+      const dot02 = dx02 * dx12 + dy02 * dy12;
+      if (dot01 >= 0 && dot02 >= 0) {
+        return [node, c];
+      }
+    }
+    const rv = findPruneInner(c, scale, x0, y0);
+    if (rv) {
+      return rv;
+    }
+  }
+  return null;
+};
+
+const redoTreeNodeSize = function(tn) {
+  redoTreeNodeSizeInner(tn, 60);
+};
+
+const redoTreeNodeSizeInner = function(tn, r) {
+  tn.r = r;
+  for (let i = 0; i < tn.children.length; ++i) {
+    redoTreeNodeSizeInner(tn.children[i], r * 0.75);
+  }
+};
+
+const findAdopt = function(st, circle) {
+  const x1 = circle.treeNode.x;
+  const y1 = circle.treeNode.y;
+  // drawables just an easy way to get all Circles, this should probably be done
+  // differently or I should not have drawables and hotspots and such
+  for (let i = 0; i < st.drawables.length; ++i) {
+    if (circle == st.drawables[i]) {
+      continue;
+    }
+    const x2 = st.drawables[i].treeNode.x;
+    const y2 = st.drawables[i].treeNode.y;
+    const r = st.drawables[i].treeNode.r;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (dx * dx + dy * dy < r * r) {
+      // TODO: check for cycle
+      return st.drawables[i];
+    }
+  }
+  return null;
+};
+
+const tryAdopt = function(st, circle) {
+  const x1 = circle.treeNode.x;
+  const y1 = circle.treeNode.y;
+
+  const rv = findAdopt(st, circle);
+  if (rv) {
+    rv.treeNode.children.push(circle.treeNode);
+    circle.parent = rv;
+    redoTreeNodeSizeInner(circle.parent.treeNode, circle.parent.treeNode.r);
+    const panX = st.panX + st.tempPanX;
+    const panY = st.panY + st.tempPanY;
+    const scale = st.zoom;
+
+    moveSubtree(circle.treeNode,
+        (st.touchStarted.x - panX) / scale - circle.treeNode.x,
+        (st.touchStarted.y - panY) / scale - circle.treeNode.y);
+  }
+};
+
+const moveSubtree = function(tn, dx, dy) {
+  tn.x += dx;
+  tn.y += dy;
+  for (let i = 0; i < tn.children.length; ++i) {
+    moveSubtree(tn.children[i], dx, dy);
+  }
 };
 
 const Circle = function(r, x, y, parent) {
@@ -826,6 +959,7 @@ Circle.prototype = {
   },
   hit(st, x, y) {
     st.selectedCircle = this;
+    st.selectedPrune = null;
   },
   dragStart(st, x, y) {
     const r = this.treeNode.r;
@@ -874,12 +1008,16 @@ Circle.prototype = {
   },
   dragEnd(st, x, y) {
     if (this.parent) {
+      // check if close enough to parent to delete
       const minDist = this.parent.treeNode.r;
       const dx = this.treeNode.x - this.parent.treeNode.x;
       const dy = this.treeNode.y - this.parent.treeNode.y;
       if (dx * dx + dy * dy < minDist * minDist) {
         removeSpecificCircle(st, this.parent.treeNode, this.treeNode);
       }
+    } else {
+      // no parent, check if close enough to another node to adopt
+      tryAdopt(st, this);
     }
   },
   dragCancel() {
@@ -922,35 +1060,52 @@ Circle.prototype = {
         ctx.restore();
       }
 
-      // cross-out for pending deletion
-      if (this.parent) {
-        const minDist = this.parent.treeNode.r;
-        const dx = this.treeNode.x - this.parent.treeNode.x;
-        const dy = this.treeNode.y - this.parent.treeNode.y;
-        if (dx * dx + dy * dy < minDist * minDist) {
-          ctx.beginPath();
-          ctx.arc(this.treeNode.x, this.treeNode.y, r * 1.2, 0, Math.PI * 2);
-          ctx.strokeStyle = '#f00';
-          ctx.lineWidth = 4/scale;
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(this.treeNode.x + Math.SQRT1_2 * r * 1.2,
-                     this.treeNode.y + Math.SQRT1_2 * r *-1.2);
-          ctx.lineTo(this.treeNode.x + Math.SQRT1_2 * r *-1.2,
-                     this.treeNode.y + Math.SQRT1_2 * r * 1.2);
-          ctx.stroke();
+      if (this == st.draggingObj) {
+        if (this.parent) {
+          // cross-out for pending deletion
+          const minDist = this.parent.treeNode.r;
+          const dx = this.treeNode.x - this.parent.treeNode.x;
+          const dy = this.treeNode.y - this.parent.treeNode.y;
+          if (dx * dx + dy * dy < minDist * minDist) {
+            ctx.beginPath();
+            ctx.arc(this.treeNode.x, this.treeNode.y, r * 1.2, 0, Math.PI * 2);
+            ctx.strokeStyle = '#f00';
+            ctx.lineWidth = 4/scale;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(this.treeNode.x + Math.SQRT1_2 * r * 1.2,
+                       this.treeNode.y + Math.SQRT1_2 * r *-1.2);
+            ctx.lineTo(this.treeNode.x + Math.SQRT1_2 * r *-1.2,
+                       this.treeNode.y + Math.SQRT1_2 * r * 1.2);
+            ctx.stroke();
+          }
+        } else {
+          // highlight pending adoption
+          const rv = findAdopt(st, this);
+          if (rv) {
+            ctx.beginPath();
+            ctx.arc(rv.treeNode.x, rv.treeNode.y, rv.treeNode.r, 0, Math.PI * 2);
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 4/scale;
+            ctx.stroke();
+          }
         }
       }
     } else if (layer == 1) {
+      // edge
       if (this.parent) {
+        const selected = st.selectedPrune &&
+          st.selectedPrune[0] == this.parent.treeNode &&
+          st.selectedPrune[1] == this.treeNode;
         ctx.beginPath();
         ctx.moveTo(this.treeNode.x, this.treeNode.y);
         ctx.lineTo(this.parent.treeNode.x, this.parent.treeNode.y);
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 1/scale;
+        ctx.strokeStyle = selected ? '#f00' : '#000';
+        ctx.lineWidth = (selected && !inset) ? 24/scale : 1/scale;
         ctx.stroke();
       }
     } else if (layer == 0) {
+      // rim/handle
       const r = this.treeNode.r;
       const rim = this.rimSize(scale);
 
@@ -1034,6 +1189,7 @@ STATE.hotspots = [];
 STATE.drawables = [];
 STATE.menu = new Menu(["A","B","v","^","+","n"]);
 STATE.selectedCircle = null;
+STATE.selectedPrune = null;
 STATE.circles = [];
 STATE.panX = 0;
 STATE.panY = 0;

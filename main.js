@@ -989,7 +989,11 @@ Circle.prototype = {
     return dx * dx + dy * dy <= (r + rim) * (r + rim);
   },
   hit(st, x, y) {
-    st.selectedCircle = this;
+    if (st.selectedCircle == this) {
+      st.selectedCircle = null;
+    } else {
+      st.selectedCircle = this;
+    }
     st.selectedPrune = null;
   },
   dragStart(st, x, y) {

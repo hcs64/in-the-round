@@ -499,6 +499,9 @@ const draw = function(st, t) {
   for (let i = 0; i < st.drawables.length; i++) {
     st.drawables[i].draw(st, ctx, 2, scale, false);
   }
+  for (let i = 0; i < st.drawables.length; i++) {
+    st.drawables[i].draw(st, ctx, 3, scale, false);
+  }
 
   ctx.restore();
 
@@ -561,6 +564,9 @@ const drawMinimap = function(st) {
   }
   for (let i = 0; i < st.drawables.length; i++) {
     st.drawables[i].draw(st, ctx, 2, scale, true);
+  }
+  for (let i = 0; i < st.drawables.length; i++) {
+    st.drawables[i].draw(st, ctx, 3, scale, true);
   }
   ctx.restore();
 
@@ -1054,8 +1060,40 @@ Circle.prototype = {
 
   // drawable
   draw(st, ctx, layer, scale, inset) {
-    if (layer == 2) {
-      const r = this.treeNode.r;
+    const r = this.treeNode.r;
+    if (layer == 3) {
+      if (this == st.draggingObj) {
+        if (this.parent) {
+          // highlight pending adoption
+          const rv = findAdopt(st, this);
+          if (rv) {
+            ctx.beginPath();
+            ctx.arc(rv.treeNode.x, rv.treeNode.y, rv.treeNode.r, 0, Math.PI * 2);
+            ctx.strokeStyle = '#0f0';
+            ctx.lineWidth = 4/scale;
+            ctx.stroke();
+          } else {
+            // cross-out for pending deletion
+            const minDist = this.parent.treeNode.r;
+            const dx = this.treeNode.x - this.parent.treeNode.x;
+            const dy = this.treeNode.y - this.parent.treeNode.y;
+            if (dx * dx + dy * dy < minDist * minDist) {
+              ctx.beginPath();
+              ctx.arc(this.treeNode.x, this.treeNode.y, r * 1.2, 0, Math.PI * 2);
+              ctx.strokeStyle = '#f00';
+              ctx.lineWidth = 4/scale;
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(this.treeNode.x + Math.SQRT1_2 * r * 1.2,
+                         this.treeNode.y + Math.SQRT1_2 * r *-1.2);
+              ctx.lineTo(this.treeNode.x + Math.SQRT1_2 * r *-1.2,
+                         this.treeNode.y + Math.SQRT1_2 * r * 1.2);
+              ctx.stroke();
+            }
+          }
+        }
+      }
+    } else if (layer == 2) {
       const selected = this == st.selectedCircle;
 
       ctx.beginPath();
@@ -1088,37 +1126,6 @@ Circle.prototype = {
         ctx.restore();
       }
 
-      if (this == st.draggingObj) {
-        if (this.parent) {
-          // highlight pending adoption
-          const rv = findAdopt(st, this);
-          if (rv) {
-            ctx.beginPath();
-            ctx.arc(rv.treeNode.x, rv.treeNode.y, rv.treeNode.r, 0, Math.PI * 2);
-            ctx.strokeStyle = '#0f0';
-            ctx.lineWidth = 4/scale;
-            ctx.stroke();
-          } else {
-            // cross-out for pending deletion
-            const minDist = this.parent.treeNode.r;
-            const dx = this.treeNode.x - this.parent.treeNode.x;
-            const dy = this.treeNode.y - this.parent.treeNode.y;
-            if (dx * dx + dy * dy < minDist * minDist) {
-              ctx.beginPath();
-              ctx.arc(this.treeNode.x, this.treeNode.y, r * 1.2, 0, Math.PI * 2);
-              ctx.strokeStyle = '#f00';
-              ctx.lineWidth = 4/scale;
-              ctx.stroke();
-              ctx.beginPath();
-              ctx.moveTo(this.treeNode.x + Math.SQRT1_2 * r * 1.2,
-                         this.treeNode.y + Math.SQRT1_2 * r *-1.2);
-              ctx.lineTo(this.treeNode.x + Math.SQRT1_2 * r *-1.2,
-                         this.treeNode.y + Math.SQRT1_2 * r * 1.2);
-              ctx.stroke();
-            }
-          }
-        }
-      }
     } else if (layer == 1) {
       // edge
       if (this.parent) {

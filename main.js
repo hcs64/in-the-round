@@ -882,6 +882,9 @@ const findAdopt = function(st, circle) {
     if (circle == st.drawables[i]) {
       continue;
     }
+    if (st.drawables[i].parent) {
+      continue;
+    }
     const x2 = st.drawables[i].treeNode.x;
     const y2 = st.drawables[i].treeNode.y;
     const r = st.drawables[i].treeNode.r;
@@ -895,24 +898,23 @@ const findAdopt = function(st, circle) {
   return null;
 };
 
+// try to use given circle to select a new child for its parent
 const tryAdopt = function(st, circle) {
   const x1 = circle.treeNode.x;
   const y1 = circle.treeNode.y;
 
   const rv = findAdopt(st, circle);
+  // rv is the discovered orphan that circle's parent will replace circle with
   if (rv) {
-    rv.treeNode.children.push(circle.treeNode);
-    circle.parent = rv;
-    redoTreeNodeSizeInner(circle.parent.treeNode, circle.parent.treeNode.r);
+    rv.parent = circle.parent;
+    rv.parent.treeNode.children.push(rv.treeNode);
+    // remove circle
+    removeSpecificCircle(st, circle.parent.treeNode, circle.treeNode)
+    redoTreeNodeSizeInner(rv.parent.treeNode, rv.parent.treeNode.r);
 
-    const dx = circle.treeNode.x - circle.parent.treeNode.x;
-    const dy = circle.treeNode.y - circle.parent.treeNode.y;
-    const r = Math.sqrt(dx * dx + dy * dy);
-    const safeR = (circle.parent.treeNode.r + circle.treeNode.r) * 2.2;
-    moveSubtree(circle.treeNode,
-        circle.parent.treeNode.x + dx * safeR / r - circle.treeNode.x,
-        circle.parent.treeNode.y + dy * safeR / r - circle.treeNode.y);
+    return true;
   }
+  return false;
 };
 
 const moveSubtree = function(tn, dx, dy) {
@@ -1008,16 +1010,16 @@ Circle.prototype = {
   },
   dragEnd(st, x, y) {
     if (this.parent) {
-      // check if close enough to parent to delete
-      const minDist = this.parent.treeNode.r;
-      const dx = this.treeNode.x - this.parent.treeNode.x;
-      const dy = this.treeNode.y - this.parent.treeNode.y;
-      if (dx * dx + dy * dy < minDist * minDist) {
-        removeSpecificCircle(st, this.parent.treeNode, this.treeNode);
+      // try to use this node to adopt another
+      if (!tryAdopt(st, this)) {
+        // check if close enough to parent to delete
+        const minDist = this.parent.treeNode.r;
+        const dx = this.treeNode.x - this.parent.treeNode.x;
+        const dy = this.treeNode.y - this.parent.treeNode.y;
+        if (dx * dx + dy * dy < minDist * minDist) {
+          removeSpecificCircle(st, this.parent.treeNode, this.treeNode);
+        }
       }
-    } else {
-      // no parent, check if close enough to another node to adopt
-      tryAdopt(st, this);
     }
   },
   dragCancel() {
@@ -1062,24 +1064,6 @@ Circle.prototype = {
 
       if (this == st.draggingObj) {
         if (this.parent) {
-          // cross-out for pending deletion
-          const minDist = this.parent.treeNode.r;
-          const dx = this.treeNode.x - this.parent.treeNode.x;
-          const dy = this.treeNode.y - this.parent.treeNode.y;
-          if (dx * dx + dy * dy < minDist * minDist) {
-            ctx.beginPath();
-            ctx.arc(this.treeNode.x, this.treeNode.y, r * 1.2, 0, Math.PI * 2);
-            ctx.strokeStyle = '#f00';
-            ctx.lineWidth = 4/scale;
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(this.treeNode.x + Math.SQRT1_2 * r * 1.2,
-                       this.treeNode.y + Math.SQRT1_2 * r *-1.2);
-            ctx.lineTo(this.treeNode.x + Math.SQRT1_2 * r *-1.2,
-                       this.treeNode.y + Math.SQRT1_2 * r * 1.2);
-            ctx.stroke();
-          }
-        } else {
           // highlight pending adoption
           const rv = findAdopt(st, this);
           if (rv) {
@@ -1088,6 +1072,24 @@ Circle.prototype = {
             ctx.strokeStyle = '#0f0';
             ctx.lineWidth = 4/scale;
             ctx.stroke();
+          } else {
+            // cross-out for pending deletion
+            const minDist = this.parent.treeNode.r;
+            const dx = this.treeNode.x - this.parent.treeNode.x;
+            const dy = this.treeNode.y - this.parent.treeNode.y;
+            if (dx * dx + dy * dy < minDist * minDist) {
+              ctx.beginPath();
+              ctx.arc(this.treeNode.x, this.treeNode.y, r * 1.2, 0, Math.PI * 2);
+              ctx.strokeStyle = '#f00';
+              ctx.lineWidth = 4/scale;
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.moveTo(this.treeNode.x + Math.SQRT1_2 * r * 1.2,
+                         this.treeNode.y + Math.SQRT1_2 * r *-1.2);
+              ctx.lineTo(this.treeNode.x + Math.SQRT1_2 * r *-1.2,
+                         this.treeNode.y + Math.SQRT1_2 * r * 1.2);
+              ctx.stroke();
+            }
           }
         }
       }

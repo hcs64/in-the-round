@@ -873,9 +873,31 @@ const redoTreeNodeSizeInner = function(tn, r) {
   }
 };
 
+const isAChildTreeNode = function(treeNode, possibleParent) {
+  for (let i = 0; i < possibleParent.children.length; ++i) {
+    if (treeNode == possibleParent.children[i]) {
+      return true;
+    } else {
+      if (isAChildTreeNode(treeNode, possibleParent.children[i])) {
+        return true;
+      }
+    }
+  }
+  return false;
+};
+
 const findAdopt = function(st, circle) {
   const x1 = circle.treeNode.x;
   const y1 = circle.treeNode.y;
+
+  if (circle.treeNode.children.length > 0) {
+    // don't adopt with a placeholder that already has children
+    return null;
+  }
+  if (!circle.brandNew) {
+    // the circle should be freshly dragged
+    return null;
+  }
   // drawables just an easy way to get all Circles, this should probably be done
   // differently or I should not have drawables and hotspots and such
   for (let i = 0; i < st.drawables.length; ++i) {
@@ -891,8 +913,9 @@ const findAdopt = function(st, circle) {
     const dx = x2 - x1;
     const dy = y2 - y1;
     if (dx * dx + dy * dy < r * r) {
-      // TODO: check for cycle
-      return st.drawables[i];
+      if (!isAChildTreeNode(circle.treeNode, st.drawables[i].treeNode)) {
+        return st.drawables[i];
+      }
     }
   }
   return null;
@@ -971,7 +994,9 @@ Circle.prototype = {
     const dd = dx * dx + dy * dy;
 
     if (dd > r * r) {
-      return addCircle(st, r * 0.75, x, y, this);
+      const c = addCircle(st, r * 0.75, x, y, this);
+      c.brandNew = true;
+      return c;
     } else {
       return this;
     }
@@ -1021,6 +1046,7 @@ Circle.prototype = {
         }
       }
     }
+    this.brandNew = false;
   },
   dragCancel() {
     removeSpecificCircle(st, this.parent.treeNode, this.treeNode);

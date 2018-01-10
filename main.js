@@ -590,7 +590,7 @@ const click = function(st, x, y) {
   y = (y - st.panY) / st.zoom;
   for (let i = st.hotspots.length - 1; i >= 0; --i) {
     const hs = st.hotspots[i];
-    if (hs.isWithin(st, x, y) || hs.isWithinBG(st, x, y)) {
+    if (hs.isWithin(st, x, y)) {
       hs.hit(st, x, y);
       gotHit = true;
       break;
@@ -962,11 +962,11 @@ const Circle = function(r, x, y, parent) {
 Circle.prototype = {
   rimSize(scale) {
     const r = this.treeNode.r;
-    let rim = 50 / scale;
+    let rim = 80 / scale;
     if (r * 2 * scale < 45) {
       rim = 0;
     } else if (r * 2 * scale < 50) {
-      rim = 50 / scale * (r*2*scale - 45) / 5;
+      rim = 80 / scale * (r*2*scale - 45) / 5;
     }
     return rim;
   },
